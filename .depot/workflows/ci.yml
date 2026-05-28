@@ -295,17 +295,17 @@ jobs:
           path: compose-logs.txt
           if-no-files-found: ignore
   dashboard-e2e:
-    name: dashboard-e2e (${{ matrix.backend }}, shard ${{ matrix.shard }}/4)
+    name: dashboard-e2e (${{ matrix.backend }}, shard ${{ matrix.shard }}/6)
     runs-on:
       size: 4x16
-      image: d58mfwccbf.registry.depot.dev/falseflag-dashboard-e2e:go1.26-node22-pnpm10.13-pw1.49-postgres16
+      image: d58mfwccbf.registry.depot.dev/falseflag-ci-base:go1.26-node22-pnpm10.13-pw1.49-spectral6.14-postgres16
     needs: build-images
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         backend: [postgres, sqlite]
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     env:
       COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
     steps:
@@ -327,14 +327,13 @@ jobs:
           FALSEFLAG_DASHBOARD_URL: http://127.0.0.1:3030
           FALSEFLAG_API_BASE_URL: http://127.0.0.1:8080
         run: |
-          npm install --prefix /tmp/playwright-runner --no-save "@playwright/test@${PLAYWRIGHT_VERSION}"
           mkdir -p js/apps/dashboard/node_modules/@playwright
-          ln -s /tmp/playwright-runner/node_modules/@playwright/test js/apps/dashboard/node_modules/@playwright/test
-          ln -s /tmp/playwright-runner/node_modules/playwright js/apps/dashboard/node_modules/playwright
-          ln -s /tmp/playwright-runner/node_modules/playwright-core js/apps/dashboard/node_modules/playwright-core
-          /tmp/playwright-runner/node_modules/.bin/playwright test \
+          ln -s /opt/playwright-runner/node_modules/@playwright/test js/apps/dashboard/node_modules/@playwright/test
+          ln -s /opt/playwright-runner/node_modules/playwright js/apps/dashboard/node_modules/playwright
+          ln -s /opt/playwright-runner/node_modules/playwright-core js/apps/dashboard/node_modules/playwright-core
+          /opt/playwright-runner/node_modules/.bin/playwright test \
             --config js/apps/dashboard/playwright.config.ts \
-            --shard=${{ matrix.shard }}/4
+            --shard=${{ matrix.shard }}/6
       - name: dump compose logs (on failure)
         if: failure()
         run: docker compose -f "${COMPOSE_FILE}" logs > compose-logs.txt
@@ -342,6 +341,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: compose-logs-dashboard-e2e-${{ matrix.backend }}-${{ matrix.shard }}-of-4
+          name: compose-logs-dashboard-e2e-${{ matrix.backend }}-${{ matrix.shard }}-of-6
           path: compose-logs.txt
           if-no-files-found: ignore

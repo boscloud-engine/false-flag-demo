@@ -6,11 +6,12 @@ env:
   NODE_VERSION: "22"
   PNPM_VERSION: "10.13.1"
   PLAYWRIGHT_VERSION: "1.49.1"
+  SPECTRAL_VERSION: "6.14.2"
   POSTGRES_IMAGE: "postgres:16-alpine"
-  SNAPSHOT_IMAGE: "d58mfwccbf.registry.depot.dev/falseflag-dashboard-e2e:go1.26-node22-pnpm10.13-pw1.49-postgres16"
+  SNAPSHOT_IMAGE: "d58mfwccbf.registry.depot.dev/falseflag-ci-base:go1.26-node22-pnpm10.13-pw1.49-spectral6.14-postgres16"
 jobs:
   build-image:
-    name: build dashboard-e2e image
+    name: build ci base image
     runs-on: depot-ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -24,18 +25,26 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: install pnpm
         run: npm install -g pnpm@${PNPM_VERSION}
+      - name: install spectral
+        run: npm install -g "@stoplight/spectral-cli@${SPECTRAL_VERSION}"
       - name: expose runtime tools on default PATH
         run: |
           set -euo pipefail
-          for tool in go node npm npx pnpm; do
+          for tool in go node npm npx pnpm spectral; do
             path="$(command -v "${tool}")"
             sudo ln -sf "${path}" "/usr/local/bin/${tool}"
           done
           go version
           node --version
           pnpm --version
+          spectral --version
       - name: install playwright chromium
         run: pnpm dlx playwright@${PLAYWRIGHT_VERSION} install --with-deps chromium
+      - name: install playwright runner
+        run: |
+          sudo mkdir -p /opt/playwright-runner
+          sudo chown runner:runner /opt/playwright-runner
+          npm install --prefix /opt/playwright-runner --no-save "@playwright/test@${PLAYWRIGHT_VERSION}"
       - name: pull compose postgres image
         run: docker pull "${POSTGRES_IMAGE}"
       - name: snapshot sandbox
