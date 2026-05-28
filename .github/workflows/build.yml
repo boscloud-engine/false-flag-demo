@@ -1,0 +1,78 @@
+name: build.yml
+
+on:
+  push:
+    tags:
+      - "[0-9].[0-9]+.[0-9]+"
+    branches:
+      - "*"
+
+jobs:
+  build-images:
+    name: build-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
+
+      - name: API - Docker tags and metadata
+        id: api-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "api-meta"
+          images: |
+            falseflag/api
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: Proxy - Docker tags and metadata
+        id: proxy-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "proxy-meta"
+          images: |
+            falseflag/proxy
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: Loadgen - Docker tags and metadata
+        id: loadgen-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "loadgen-meta"
+          images: |
+            falseflag/loadgen
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: Dashboard - Docker tags and metadata
+        id: dashboard-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "dashboard-meta"
+          images: |
+            falseflag/dashboard
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: Build
+        uses: depot/bake-action@v1
+        with:
+          files: |
+            ./docker-bake.hcl
+            ${{ steps.api-meta.outputs.bake-file }}
+            ${{ steps.dashboard-meta.outputs.bake-file }}
+            ${{ steps.proxy-meta.outputs.bake-file }}
+            ${{ steps.loadgen-meta.outputs.bake-file }}
+          targets: default
+          provenance: mode=max
+          sbom: true
+          # Only tags are pushed, pushes to branches test whether app can be built.
+          push: ${{github.ref_type == 'tag'}}
+          save: true
+        env:
+          VERSION: ${{ fromJSON(steps.api-meta.outputs.json).labels['org.opencontainers.image.version'] }}

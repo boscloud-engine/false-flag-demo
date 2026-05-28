@@ -10,16 +10,12 @@ variable "COMMIT" {
   default = "unknown"
 }
 
-variable "REGISTRY" {
-  default = "ghcr.io/depot/falseflag"
-}
-
 group "default" {
-  targets = ["api", "proxy", "operator", "mcp", "dashboard"]
+  targets = ["api", "proxy", "dashboard"]
 }
 
 group "go-services" {
-  targets = ["api", "proxy", "operator", "mcp", "loadgen"]
+  targets = ["api", "proxy", "loadgen"]
 }
 
 target "service-base" {
@@ -32,49 +28,33 @@ target "service-base" {
   platforms = ["linux/amd64", "linux/arm64"]
 }
 
+target "api-meta" {}
 target "api" {
-  inherits = ["service-base"]
+  inherits = ["service-base", "api-meta"]
   args = {
     SERVICE = "falseflag-api"
   }
-  tags = ["${REGISTRY}/api:${VERSION}"]
 }
 
+target "proxy-meta" {}
 target "proxy" {
-  inherits = ["service-base"]
+  inherits = ["service-base", "proxy-meta"]
   args = {
     SERVICE = "falseflag-proxy"
   }
-  tags = ["${REGISTRY}/proxy:${VERSION}"]
 }
 
-target "operator" {
-  inherits = ["service-base"]
-  args = {
-    SERVICE = "falseflag-operator"
-  }
-  tags = ["${REGISTRY}/operator:${VERSION}"]
-}
-
-target "mcp" {
-  inherits = ["service-base"]
-  args = {
-    SERVICE = "falseflag-mcp"
-  }
-  tags = ["${REGISTRY}/mcp:${VERSION}"]
-}
-
+target "loadgen-meta" {}
 target "loadgen" {
-  inherits = ["service-base"]
+  inherits = ["service-base", "loadgen-meta"]
   args = {
     SERVICE = "falseflag-loadgen"
   }
-  tags = ["${REGISTRY}/loadgen:${VERSION}"]
 }
 
+target "dashboard-meta" {}
 target "dashboard" {
   context    = ".."
   dockerfile = "infra/Dockerfile.dashboard"
   platforms  = ["linux/amd64", "linux/arm64"]
-  tags       = ["${REGISTRY}/dashboard:${VERSION}"]
 }
