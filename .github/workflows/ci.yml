@@ -17,7 +17,6 @@ permissions:
 env:
   GO_VERSION: "1.26.0"
   NODE_VERSION: "22"
-  PNPM_VERSION: "10.0.0"
   # Hurl 4.x semantics — `contains` matches array members. Hurl 5.x
   # tightened `contains` to substring-only and split out `includes` for
   # arrays. The slice 1–6 test corpus was written against 4.x.
