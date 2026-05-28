@@ -237,7 +237,7 @@ jobs:
       - name: Security scan
         run: |
           set -euo pipefail
-          ref="falseflag/mr31tm4wc4:${{ needs.build-images.outputs.build-id }}-${{ matrix.bake-target }}"
+          ref="registry.depot.dev/mr31tm4wc4:${{ needs.build-images.outputs.build-id }}-${{ matrix.bake-target }}"
           docker image ls
           trivy image \
             --image-src docker \
