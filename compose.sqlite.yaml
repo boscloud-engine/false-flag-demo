@@ -52,6 +52,11 @@ services:
     ports:
       - "8080:8080"
       - "8090:8090"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/service", "healthcheck", "http://127.0.0.1:8080/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     depends_on:
       init-data:
         condition: service_completed_successfully
@@ -73,9 +78,14 @@ services:
       LOG_LEVEL: info
     ports:
       - "8081:8081"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/service", "healthcheck", "http://127.0.0.1:8081/readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
 
   operator:
     image: ghcr.io/depot/falseflag/operator:dev
@@ -112,9 +122,14 @@ services:
     ports:
       - "8091:8091"
       - "8092:8092"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/service", "healthcheck", "http://127.0.0.1:8092/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
 
   dashboard:
     image: ghcr.io/depot/falseflag/dashboard:dev
@@ -129,9 +144,20 @@ services:
       FALSEFLAG_API_BASE_URL: "http://api:8080"
     ports:
       - "3030:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   falseflag-sqlite: {}

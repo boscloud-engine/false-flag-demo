@@ -8,11 +8,15 @@ import (
 
 	"github.com/depot/falseflag/internal/appconfig"
 	"github.com/depot/falseflag/internal/buildinfo"
+	"github.com/depot/falseflag/internal/healthcheck"
 	"github.com/depot/falseflag/internal/logging"
 	"github.com/depot/falseflag/internal/proxy"
 )
 
 func main() {
+	if healthcheck.RunFromArgs(os.Args) {
+		return
+	}
 	os.Exit(buildinfo.WithGracefulShutdown("proxy", run))
 }
 

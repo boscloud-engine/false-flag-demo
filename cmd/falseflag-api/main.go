@@ -8,12 +8,16 @@ import (
 
 	"github.com/depot/falseflag/internal/appconfig"
 	"github.com/depot/falseflag/internal/buildinfo"
+	"github.com/depot/falseflag/internal/healthcheck"
 	"github.com/depot/falseflag/internal/logging"
 	"github.com/depot/falseflag/internal/server"
 	"github.com/depot/falseflag/internal/store"
 )
 
 func main() {
+	if healthcheck.RunFromArgs(os.Args) {
+		return
+	}
 	os.Exit(buildinfo.WithGracefulShutdown("api", run))
 }
 

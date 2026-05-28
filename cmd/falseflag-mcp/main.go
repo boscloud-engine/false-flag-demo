@@ -11,9 +11,13 @@ import (
 	"os"
 
 	"github.com/depot/falseflag/internal/buildinfo"
+	"github.com/depot/falseflag/internal/healthcheck"
 	"github.com/depot/falseflag/internal/mcp"
 )
 
 func main() {
+	if healthcheck.RunFromArgs(os.Args) {
+		return
+	}
 	os.Exit(buildinfo.WithGracefulShutdown("mcp", mcp.Run))
 }

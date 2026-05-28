@@ -39,37 +39,15 @@ case "${BACKEND}" in
   sqlite)
     echo "smoke: wiping SQLite volume and rebooting api"
     docker compose -f "${COMPOSE_FILE}" down -v >/dev/null
-    docker compose -f "${COMPOSE_FILE}" up -d --build >/dev/null
-    echo "smoke: waiting for ${API_URL}/healthz"
-    for i in $(seq 1 60); do
-      if curl -fsS -o /dev/null "${API_URL}/healthz"; then
-        break
-      fi
-      sleep 1
-      if [ "${i}" -eq 60 ]; then
-        echo "smoke: API never came up at ${API_URL}"
-        docker compose -f "${COMPOSE_FILE}" logs --tail 50 api
-        exit 1
-      fi
-    done
+    docker compose -f "${COMPOSE_FILE}" up -d --build --wait --wait-timeout 120 >/dev/null
     ;;
 esac
 
 echo "smoke: seeding demo dataset (proxy needs acme-web for /readyz)"
 go run ./cmd/falseflag-seed >/dev/null
 
-echo "smoke: waiting for proxy to pick up the fresh seed"
-for i in $(seq 1 30); do
-  if curl -fsS -o /dev/null "http://localhost:8081/readyz"; then
-    break
-  fi
-  sleep 1
-  if [ "${i}" -eq 30 ]; then
-    echo "smoke: proxy /readyz never returned 200"
-    docker compose -f "${COMPOSE_FILE}" logs --tail 30 proxy
-    exit 1
-  fi
-done
+echo "smoke: waiting for proxy snapshot poll"
+sleep 2
 
 echo "smoke: running hurl --test --jobs 1 tests/hurl/*.hurl"
 # Files depend on state seeded by earlier files in lexical order;

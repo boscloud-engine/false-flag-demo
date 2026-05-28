@@ -130,25 +130,21 @@ func (p *Proxy) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-// handleReady is the readiness probe: returns 200 only when a snapshot
-// is loaded (or no project is configured, in which case the proxy is
-// idle-ready). Returns 503 with a structured body when the proxy is
-// expected to serve evaluations but hasn't loaded its first snapshot
-// yet.
+// handleReady is the readiness probe: returns 200 once the proxy can
+// answer evaluation requests. A missing snapshot is still ready: the
+// evaluator returns caller defaults until polling loads one.
 func (p *Proxy) handleReady(w http.ResponseWriter, _ *http.Request) {
 	status := "ok"
-	if p.evaluator != nil && p.evaluator.Snapshot() == nil {
-		status = "starting"
+	snapshotLoaded := false
+	if p.evaluator != nil {
+		snapshotLoaded = p.evaluator.Snapshot() != nil
 	}
 	w.Header().Set("Content-Type", "application/json")
-	if status != "ok" {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	} else {
-		w.WriteHeader(http.StatusOK)
-	}
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"status":  status,
-		"project": p.cfg.ProjectSlug,
+		"status":          status,
+		"project":         p.cfg.ProjectSlug,
+		"snapshot_loaded": snapshotLoaded,
 	})
 }
 

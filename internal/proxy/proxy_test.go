@@ -85,7 +85,7 @@ func TestProxy_ReadyNoProject(t *testing.T) {
 	}
 }
 
-func TestProxy_ReadyStarting(t *testing.T) {
+func TestProxy_ReadyWithoutSnapshot(t *testing.T) {
 	t.Parallel()
 	p := newProxy(t)
 	p.SetEvaluator(&fakeEvaluator{snap: nil})
@@ -96,8 +96,15 @@ func TestProxy_ReadyStarting(t *testing.T) {
 		t.Fatalf("GET /readyz: %v", err)
 	}
 	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("status = %d, want 503", res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200", res.StatusCode)
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if payload["snapshot_loaded"] != false {
+		t.Errorf("snapshot_loaded = %v, want false", payload["snapshot_loaded"])
 	}
 }
 
