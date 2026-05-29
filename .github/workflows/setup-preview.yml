@@ -1,0 +1,95 @@
+name: setup-preview
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  check-comment:
+    name: Check preview trigger
+    if: >-
+      github.event.issue.pull_request &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    outputs:
+      triggered: ${{ steps.check.outputs.triggered }}
+    steps:
+      - name: Check for /setup-preview
+        id: check
+        uses: khan/pull-request-comment-trigger@master
+        with:
+          trigger: /setup-preview
+          prefix_only: true
+          reaction: rocket
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  resolve-preview:
+    name: Resolve preview target
+    needs: check-comment
+    if: needs.check-comment.outputs.triggered == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.preview.outputs.environment }}
+      branch: ${{ steps.preview.outputs.branch }}
+      pr: ${{ steps.preview.outputs.pr }}
+    steps:
+      - name: Resolve PR branch
+        id: preview
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+
+          branch="$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq '.head.ref')"
+          environment="pr-${PR_NUMBER}"
+
+          {
+            echo "environment=${environment}"
+            echo "branch=${branch}"
+            echo "pr=${PR_NUMBER}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Acknowledge request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --body "Setting up preview environment \`${{ steps.preview.outputs.environment }}\` for branch \`${{ steps.preview.outputs.branch }}\`."
+
+  create-preview:
+    name: Create preview in GitOps repo
+    needs: resolve-preview
+    uses: Zagrit-HQ/false-flag-gitops/.github/workflows/create-preview.yml@main
+    with:
+      environment: ${{ needs.resolve-preview.outputs.environment }}
+      branch: ${{ needs.resolve-preview.outputs.branch }}
+      pr: ${{ needs.resolve-preview.outputs.pr }}
+    secrets:
+      gitops-token: ${{ secrets.FALSE_FLAG_GITOPS_TOKEN }}
+
+  report-preview:
+    name: Report preview result
+    needs: [resolve-preview, create-preview]
+    if: always() && needs.resolve-preview.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment result
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ "${{ needs.create-preview.result }}" = "success" ]; then
+            body="Preview environment \`${{ needs.resolve-preview.outputs.environment }}\` is registered in GitOps and tracks branch \`${{ needs.resolve-preview.outputs.branch }}\`."
+          else
+            body="Preview setup failed for \`${{ needs.resolve-preview.outputs.environment }}\`. Check the workflow logs."
+          fi
+
+          gh issue comment "${{ needs.resolve-preview.outputs.pr }}" --body "${body}"
