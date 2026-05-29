@@ -24,15 +24,19 @@ jobs:
     name: Dispatch GitOps preview workflow
     runs-on: depot-ubuntu-latest
     steps:
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
+
       - name: Dispatch create-preview
         env:
-          GH_TOKEN: ${{ secrets.FALSE_FLAG_GITOPS_TOKEN }}
+          DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
         run: |
           set -euo pipefail
 
-          gh workflow run create-preview.yml \
+          depot ci dispatch \
             --repo Zagrit-HQ/false-flag-gitops \
+            --workflow create-preview.yml \
             --ref main \
-            -f environment="${{ inputs.environment }}" \
-            -f branch="${{ inputs.branch }}" \
-            -f pr="${{ inputs.pr }}"
+            --input environment="${{ inputs.environment }}" \
+            --input branch="${{ inputs.branch }}" \
+            --input pr="${{ inputs.pr }}"
