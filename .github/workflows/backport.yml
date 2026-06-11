@@ -1,0 +1,42 @@
+name: backport
+
+on:
+  pull_request:
+    types: [closed, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  backport:
+    name: Cherry-pick merged PR to latest release branch
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'backport')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create backport PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BACKPORT_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          BACKPORT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          BACKPORT_PR_TITLE: ${{ github.event.pull_request.title }}
+          BACKPORT_REPO: ${{ github.repository }}
+        run: npx --yes zx --install .github/scripts/backport.mjs --dry-run=false
