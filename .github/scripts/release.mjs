@@ -3,6 +3,8 @@ import semver from "semver"; // @7.7.2
 
 const PRIMARY_BRANCHES = new Set(["main", "trunk"]);
 const INITIAL_VERSION = "1.0.0";
+const CHART_FILE = "deploy/helm/falseflag-operator/Chart.yaml";
+const VALUES_FILE = "deploy/helm/falseflag-operator/values.yaml";
 
 const args = new Map(
   process.argv.slice(2).map((arg) => {
@@ -124,6 +126,42 @@ async function runOrPrint(label, command) {
   await command();
 }
 
+function replaceExactly(contents, pattern, replacement, file) {
+  if (!pattern.test(contents)) {
+    throw new Error(`Could not find expected version field in ${file}`);
+  }
+
+  return contents.replace(pattern, replacement);
+}
+
+async function updateHelmVersions(version) {
+  const chart = await fs.readFile(CHART_FILE, "utf8");
+  const values = await fs.readFile(VALUES_FILE, "utf8");
+  const tag = `v${version}`;
+
+  const nextChart = replaceExactly(
+    replaceExactly(chart, /^version:\s*.*$/m, `version: ${version}`, CHART_FILE),
+    /^appVersion:\s*.*$/m,
+    `appVersion: "${version}"`,
+    CHART_FILE,
+  );
+  const nextValues = replaceExactly(
+    values,
+    /^(\s*tag:\s*).*$/m,
+    `$1"${tag}"`,
+    VALUES_FILE,
+  );
+
+  if (dryRun) {
+    console.log(`[dry-run] set ${CHART_FILE} version/appVersion to ${version}`);
+    console.log(`[dry-run] set ${VALUES_FILE} image.tag to ${tag}`);
+    return;
+  }
+
+  await fs.writeFile(CHART_FILE, nextChart);
+  await fs.writeFile(VALUES_FILE, nextValues);
+}
+
 const branch = await currentBranch();
 const tags = await semverTags();
 const branches = await releaseBranches();
@@ -162,8 +200,18 @@ if (PRIMARY_BRANCHES.has(branch)) {
   console.log(`Release branch: ${branch}`);
   console.log(`Next tag: ${tag}`);
 
+  await updateHelmVersions(version);
+  await runOrPrint(`git add ${CHART_FILE} ${VALUES_FILE}`, async () => {
+    await $`git add ${CHART_FILE} ${VALUES_FILE}`;
+  });
+  await runOrPrint(`git commit -m "chore: release ${tag}"`, async () => {
+    await $`git commit -m ${`chore: release ${tag}`}`;
+  });
   await runOrPrint(`git tag -a ${tag} -m "Release ${tag}"`, async () => {
     await $`git tag -a ${tag} -m ${`Release ${tag}`}`;
+  });
+  await runOrPrint(`git push origin HEAD:${branch}`, async () => {
+    await $`git push origin ${`HEAD:${branch}`}`;
   });
   await runOrPrint(`git push origin ${tag}`, async () => {
     await $`git push origin ${tag}`;
