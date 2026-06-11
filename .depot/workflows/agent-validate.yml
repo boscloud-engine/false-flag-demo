@@ -1,0 +1,32 @@
+# Agent-generated validation loop, scoped to the eval-engine change:
+# only the checks this diff can break (Go unit tests + cross-runtime
+# conformance), booting from the pre-baked snapshot image so the
+# sandbox starts warm.
+name: agent-validate
+on:
+  workflow_dispatch:
+jobs:
+  validate:
+    name: Validate eval-engine change
+    runs-on:
+      size: 4x16
+      image: 3njzjqc81m.registry.depot.dev/falseflag-ci-base:go1.26-node22-pnpm10.13-pw1.49-spectral6.14-postgres16
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - fail-fast: false
+        parallel:
+          - name: go mod download
+            run: go mod download
+          - name: pnpm install
+            working-directory: js
+            run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - fail-fast: false
+        parallel:
+          - name: Go unit tests
+            run: make test-go
+          - name: Cross-runtime conformance
+            run: make conformance

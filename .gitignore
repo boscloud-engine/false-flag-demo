@@ -18,4 +18,3 @@ playwright-report/
 # Local environment overrides
 .env
 .env.local
-.claude/
