@@ -8,7 +8,7 @@ env:
   PLAYWRIGHT_VERSION: "1.49.1"
   SPECTRAL_VERSION: "6.14.2"
   POSTGRES_IMAGE: "postgres:16-alpine"
-  SNAPSHOT_IMAGE: "d58mfwccbf.registry.depot.dev/falseflag-ci-base:go1.26-node22-pnpm10.13-pw1.49-spectral6.14-postgres16"
+  SNAPSHOT_IMAGE: "3njzjqc81m.registry.depot.dev/falseflag-ci-base:go1.26-node22-pnpm10.13-pw1.49-spectral6.14-postgres16"
 jobs:
   build-image:
     name: build ci base image

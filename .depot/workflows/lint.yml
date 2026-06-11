@@ -17,7 +17,7 @@ jobs:
     name: Lint
     runs-on:
       size: 4x16
-      image: d58mfwccbf.registry.depot.dev/falseflag-ci-base:go1.26-node22-pnpm10.13-pw1.49-spectral6.14-postgres16
+      image: 3njzjqc81m.registry.depot.dev/falseflag-ci-base:go1.26-node22-pnpm10.13-pw1.49-spectral6.14-postgres16
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
