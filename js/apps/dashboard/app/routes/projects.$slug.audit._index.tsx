@@ -64,7 +64,7 @@ export default function AuditList() {
       >
         <label className="block text-sm">
           <span className="text-xs uppercase text-falseflag-900/60">
-            Action
+            action
           </span>
           <input
             name="action"
