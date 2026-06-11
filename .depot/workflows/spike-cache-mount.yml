@@ -1,0 +1,111 @@
+name: spike-cache-mount
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: depot-ubuntu-latest
+    steps:
+      - uses: depot/cache-mount@v1
+        with:
+          path: /home/runner/spike
+          name: spike-timings
+      - name: seed shared state
+        run: |
+          set +e
+          R=${{ github.run_id }}
+          mkdir -p /home/runner/spike/slots /home/runner/spike/canary
+          echo "PROBE seed-mkdir rc=$?"
+          for k in 1 2 3 4 5 6 7 8; do
+            printf '{"writer":"seed","run":"%s"}' "$R" > /home/runner/spike/slots/shard-$k.json
+            echo "PROBE seed-slot-$k rc=$?"
+            # Q9: cross-client delete targets (writers delete these)
+            printf 'delete me' > /home/runner/spike/delete-target-$k
+            echo "PROBE seed-delete-target-$k rc=$?"
+          done
+          # Q2 cross-RUN overwrite: shared-slot.json persists between spike runs
+          printf '{"writer":"seed","run":"%s"}' "$R" > /home/runner/spike/shared-slot.json
+          echo "PROBE seed-shared rc=$?"
+          sync
+          echo "PROBE seed-sync rc=$?"
+          echo "=== state after seed ==="
+          ls -laR /home/runner/spike
+          exit 0
+
+  writers:
+    needs: seed
+    runs-on: depot-ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        writer: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: depot/cache-mount@v1        # Q1: do all 8 concurrent mounts succeed?
+        with:
+          path: /home/runner/spike
+          name: spike-timings
+      - name: barrier
+        run: sleep 90   # ensure all 8 are mounted before anyone writes
+      - name: probes
+        run: |
+          set +e
+          W=${{ matrix.writer }}; R=${{ github.run_id }}
+          # Q4: read first (merge-on-read order, as in production)
+          out=$(cat /home/runner/spike/shared-slot.json 2>&1); rc=$?
+          echo "PROBE read-shared rc=$rc out=$out"
+          out=$(ls /home/runner/spike/slots/ 2>&1); rc=$?
+          echo "PROBE read-slots-dir rc=$rc out=$out"
+          # Q2a: in-place truncate-overwrite of own slot (existing file, seed created it)
+          printf '{"writer":%d,"run":"%s","ts":%d}' "$W" "$R" "$(date +%s)" > /home/runner/spike/slots/shard-$W.json
+          echo "PROBE overwrite-own-slot rc=$?"
+          sync -f /home/runner/spike/slots/shard-$W.json 2>/dev/null || sync
+          echo "PROBE fsync-own-slot rc=$?"          # Q2: error may surface here
+          # Q2b: temp+rename variant (rename = directory modification in Archil terms)
+          printf '{"writer":%d,"v":"rename"}' "$W" > /tmp/s.json
+          cp /tmp/s.json /home/runner/spike/slots/shard-$W.tmp
+          echo "PROBE rename-tmp-write rc=$?"
+          mv /home/runner/spike/slots/shard-$W.tmp /home/runner/spike/slots/shard-$W.renamed.json
+          echo "PROBE rename-mv rc=$?"
+          # Q6: everyone hammers the SAME file
+          printf '{"writer":%d,"run":"%s"}' "$W" "$R" > /home/runner/spike/shared-slot.json
+          echo "PROBE overwrite-shared rc=$?"
+          # Q3: new-file creation under held root (canary pattern)
+          printf 'w%d' "$W" > /home/runner/spike/canary/$R-w$W
+          echo "PROBE create-canary rc=$?"
+          # Q9a: delete a file created by ANOTHER client (seed job)
+          rm /home/runner/spike/delete-target-$W
+          echo "PROBE delete-cross-client rc=$?"
+          # Q9b: delete a file this job created itself
+          rm /home/runner/spike/slots/shard-$W.renamed.json
+          echo "PROBE delete-own rc=$?"
+          # Q4: peer visibility after everyone wrote
+          sleep 15
+          n=$(ls /home/runner/spike/canary/ 2>/dev/null | grep -c "$R-")
+          echo "PROBE peer-visibility count=$n (expect up to 8)"
+          # Q8: does runner.debug / RUNNER_DEBUG reach Depot CI jobs?
+          echo "PROBE runner-debug ctx='${{ runner.debug }}' env=$RUNNER_DEBUG"
+          exit 0
+      # Q5: watch whether the action's post step (checkin/unmount) errors
+      # in the log and whether the job still goes green.
+
+  report:
+    needs: writers
+    if: always()
+    runs-on: depot-ubuntu-latest
+    steps:
+      - uses: depot/cache-mount@v1
+        with:
+          path: /home/runner/spike
+          name: spike-timings
+      - name: final state
+        run: |
+          set +e
+          echo "=== who won shared-slot (Q6) ==="
+          cat /home/runner/spike/shared-slot.json; echo
+          echo "=== slots (Q2: which writers landed) ==="
+          for f in /home/runner/spike/slots/*; do echo "$f: $(cat $f)"; done
+          echo "=== canaries (Q3: expect up to 8 for this run) ==="
+          ls -la /home/runner/spike/canary/
+          echo "=== delete targets left (Q9: expect 0 if cross-client delete works) ==="
+          ls -la /home/runner/spike/delete-target-* 2>&1
+          exit 0
