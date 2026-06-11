@@ -107,7 +107,7 @@ export default function ProjectDetail() {
             to={`/projects/${slug}/flags`}
             className="text-sm text-falseflag-500 hover:underline"
           >
-            view all →
+            View all →
           </Link>
         </div>
         {flags.length === 0 ? (
