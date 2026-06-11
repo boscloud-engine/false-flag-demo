@@ -7,7 +7,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/depot/falseflag/operator
-  tag: "dev"
+  tag: "v1.1.0"
   pullPolicy: IfNotPresent
 
 # api configures how the operator reaches the FalseFlag control plane.
