@@ -1,0 +1,18 @@
+{
+  "id": "starts-with-email-admin",
+  "description": "starts_with predicate fires when user.email begins with the admin@ prefix.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "admin",
+        "when": { "kind": "starts_with", "attr": "user.email", "value": "admin@" },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "email": "admin@depot.dev" } },
+  "expected": { "value": true, "reason": "rule_matched", "rule_id": "admin" }
+}

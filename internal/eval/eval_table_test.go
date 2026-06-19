@@ -213,6 +213,42 @@ func TestEvaluate_Matches(t *testing.T) {
 	}
 }
 
+func TestEvaluate_StartsWith(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		prefix  string
+		ctx     map[string]any
+		matches bool
+	}{
+		{"hit", "admin@", map[string]any{"user": map[string]any{"email": "admin@depot.dev"}}, true},
+		{"miss", "admin@", map[string]any{"user": map[string]any{"email": "kyle@depot.dev"}}, false},
+		{"exact-prefix-equals-value", "depot", map[string]any{"user": map[string]any{"email": "depot"}}, true},
+		{"empty-prefix-always-hits", "", map[string]any{"user": map[string]any{"email": "anything"}}, true},
+		{"prefix-longer-than-value", "longprefix", map[string]any{"user": map[string]any{"email": "lo"}}, false},
+		{"case-sensitive", "Admin", map[string]any{"user": map[string]any{"email": "admin@x"}}, false},
+		{"unicode", "漢", map[string]any{"user": map[string]any{"email": "漢字"}}, true},
+		{"missing-attr", "admin@", map[string]any{"user": map[string]any{}}, false},
+		{"non-string-attr", "1", map[string]any{"user": map[string]any{"email": float64(123)}}, false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			src := fmt.Sprintf(`{
+				"value_type":"boolean","default":false,"rules":[
+					{"id":"r","when":{"kind":"starts_with","attr":"user.email","value":%q},"value":true}
+				]
+			}`, tc.prefix)
+			c := mustCompile(t, src)
+			d, _ := eval.Evaluate(c, tc.ctx, 1)
+			if (d.Value == true) != tc.matches {
+				t.Errorf("got %v want match=%v", d.Value, tc.matches)
+			}
+		})
+	}
+}
+
 func TestEvaluate_AlwaysAndAllAny(t *testing.T) {
 	t.Parallel()
 	src := `{

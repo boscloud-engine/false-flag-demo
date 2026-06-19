@@ -21,6 +21,7 @@ func TestValidatePredicate_Valid(t *testing.T) {
 		"lt":          `{"kind":"lt","attr":"x","value":10}`,
 		"lte":         `{"kind":"lte","attr":"x","value":10}`,
 		"matches":     `{"kind":"matches","attr":"k","pattern":"^x"}`,
+		"starts_with": `{"kind":"starts_with","attr":"k","value":"pre"}`,
 		"rollout":     `{"kind":"rollout","attr":"user.id","salt":"flag","percent":50}`,
 		"all":         `{"kind":"all","of":[{"kind":"always"}]}`,
 		"any":         `{"kind":"any","of":[{"kind":"always"}]}`,
@@ -47,16 +48,18 @@ func TestValidatePredicate_Valid(t *testing.T) {
 func TestValidatePredicate_Invalid(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{
-		"unknown-kind":       `{"kind":"xyz"}`,
-		"eq-no-attr":         `{"kind":"eq","value":"v"}`,
-		"eq-no-value":        `{"kind":"eq","attr":"k"}`,
-		"in-no-values":       `{"kind":"in","attr":"k","values":[]}`,
-		"matches-no-pattern": `{"kind":"matches","attr":"k"}`,
-		"rollout-negative":   `{"kind":"rollout","attr":"k","salt":"f","percent":-5}`,
-		"rollout-too-big":    `{"kind":"rollout","attr":"k","salt":"f","percent":150}`,
-		"all-empty":          `{"kind":"all","of":[]}`,
-		"any-empty":          `{"kind":"any","of":[]}`,
-		"not-missing":        `{"kind":"not"}`,
+		"unknown-kind":         `{"kind":"xyz"}`,
+		"eq-no-attr":           `{"kind":"eq","value":"v"}`,
+		"eq-no-value":          `{"kind":"eq","attr":"k"}`,
+		"in-no-values":         `{"kind":"in","attr":"k","values":[]}`,
+		"matches-no-pattern":   `{"kind":"matches","attr":"k"}`,
+		"starts_with-no-attr":  `{"kind":"starts_with","value":"pre"}`,
+		"starts_with-no-value": `{"kind":"starts_with","attr":"k"}`,
+		"rollout-negative":     `{"kind":"rollout","attr":"k","salt":"f","percent":-5}`,
+		"rollout-too-big":      `{"kind":"rollout","attr":"k","salt":"f","percent":150}`,
+		"all-empty":            `{"kind":"all","of":[]}`,
+		"any-empty":            `{"kind":"any","of":[]}`,
+		"not-missing":          `{"kind":"not"}`,
 	}
 	for name, raw := range cases {
 		name, raw := name, raw
