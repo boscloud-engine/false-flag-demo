@@ -101,6 +101,11 @@ jobs:
         id: bake
         uses: depot/bake-action@v1
         with:
+          # Locally-triggered `depot ci run` can't mint a GitHub OIDC token, so
+          # authenticate the bake with a project-scoped token from a Depot CI
+          # secret. (Named `admbp`, not DEPOT_TOKEN — that name is reserved by
+          # Depot CI.) Native GitHub push/PR runs still use OIDC (id-token: write).
+          token: ${{ secrets.admbp }}
           files: |
             ./docker-bake.hcl
             ${{ steps.api-meta.outputs.bake-file }}
