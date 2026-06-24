@@ -30,6 +30,8 @@ func match(p *config.Predicate, ctx map[string]any, programs map[string]config.C
 		return cmpOrd(p, ctx)
 	case config.PredMatches:
 		return cmpMatches(p, ctx)
+	case config.PredStartsWith:
+		return cmpStartsWith(p, ctx)
 	case config.PredRollout:
 		v, ok := lookupString(ctx, p.Attr)
 		if !ok {
@@ -141,6 +143,23 @@ func cmpMatches(p *config.Predicate, ctx map[string]any) (bool, error) {
 		return false, fmt.Errorf("compiling pattern: %w", err)
 	}
 	return re.MatchString(actual), nil
+}
+
+// cmpStartsWith reports whether the (string) attribute begins with the
+// prefix carried in p.Value. A missing attribute or non-string actual
+// value is a soft miss (matched=false, nil error), matching how the
+// other string predicates treat absent context. A non-string prefix is
+// a genuine config error and propagates.
+func cmpStartsWith(p *config.Predicate, ctx map[string]any) (bool, error) {
+	actual, ok := lookupString(ctx, p.Attr)
+	if !ok {
+		return false, nil
+	}
+	var prefix string
+	if err := json.Unmarshal(p.Value, &prefix); err != nil {
+		return false, fmt.Errorf("decoding starts_with value: %w", err)
+	}
+	return strings.HasPrefix(actual, prefix), nil
 }
 
 // lookup walks a dotted path ("user.country") through nested maps.

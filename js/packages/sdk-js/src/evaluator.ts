@@ -96,6 +96,8 @@ function match(
       return cmpOrd(p, ctx);
     case "matches":
       return cmpMatches(p, ctx);
+    case "starts_with":
+      return cmpStartsWith(p, ctx);
     case "rollout": {
       const v = lookupString(ctx, p.attr ?? "");
       if (v === undefined) return false;
@@ -157,6 +159,19 @@ function cmpMatches(p: Predicate, ctx: Record<string, unknown>): boolean {
   } catch {
     return false;
   }
+}
+
+// cmpStartsWith mirrors internal/eval.cmpStartsWith: a missing or
+// non-string attribute is a soft miss (false), while a non-string
+// prefix is a config error that propagates (caught by evaluate() and
+// surfaced as reason "error"), matching the Go decoder's behavior.
+function cmpStartsWith(p: Predicate, ctx: Record<string, unknown>): boolean {
+  const actual = lookupString(ctx, p.attr ?? "");
+  if (actual === undefined) return false;
+  if (typeof p.value !== "string") {
+    throw new Error("starts_with value must be a string");
+  }
+  return actual.startsWith(p.value);
 }
 
 function lookup(ctx: Record<string, unknown>, path: string): unknown {

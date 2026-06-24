@@ -117,7 +117,7 @@ func traceMatch(p *config.Predicate, ctx map[string]any, programs map[string]con
 	case config.PredAlways:
 		node.Result = true
 		return node, true, nil
-	case config.PredEq, config.PredNeq:
+	case config.PredEq, config.PredNeq, config.PredStartsWith:
 		node.Attr = p.Attr
 		actual, _ := lookup(ctx, p.Attr)
 		node.AttrValue = actual
