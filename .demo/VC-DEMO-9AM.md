@@ -250,11 +250,36 @@ git add -A && git commit -m "feat(eval): add starts_with predicate" && git push 
 ```
 > "One push, already green. The agent never pushed anything broken."
 
-⚠️ **In rehearsal, do NOT push to `main`** — use a throwaway branch:
+⚠️ **In rehearsal, do NOT push to `main`.** Push a throwaway branch and open a PR
+— CI fires on `pull_request → main`, so you get the **full pipeline running for
+real** without ever touching `main`. Then delete everything and you're reset to
+run the demo again.
+
+> ⚠️ **This repo is a fork.** `origin` is `boscloud-engine/false-flag-demo`; its
+> GitHub parent is `kylegalbraith/false-flag-demo`. Without `--repo`, `gh pr create`
+> defaults the base to the **parent**, opening a cross-fork PR. Every `gh` command
+> below pins `--repo boscloud-engine/false-flag-demo` so the PR stays **inside the fork**
+> (base `main` and head both in `boscloud-engine`) — that's what fires `ci-baseline`.
+
+**Commit + watch CI run:**
 ```bash
-git switch -c rehearsal-throwaway && git add -A && git commit -m wip
-git switch main && git branch -D rehearsal-throwaway
+git switch -c rehearsal-throwaway
+git add -A && git commit -m "feat(eval): add starts_with predicate"
+git push -u origin rehearsal-throwaway
+gh pr create --repo boscloud-engine/false-flag-demo --base main --head rehearsal-throwaway --fill
+gh pr checks rehearsal-throwaway --repo boscloud-engine/false-flag-demo --watch
 ```
+Or watch it in Depot: `depot ci run list --org 3njzjqc81m` (or the PR's Checks tab).
+
+**Tear it back down so you can redo the demo:**
+```bash
+gh pr close rehearsal-throwaway --repo boscloud-engine/false-flag-demo --delete-branch
+git switch main
+git branch -D rehearsal-throwaway                 # delete the local branch (if --delete-branch didn't)
+git checkout . && git clean -fd internal js tests # back to a clean main working tree
+```
+Then re-run **Before you go live → step 3** to re-stage the Go change for the next run.
+✅ Everything stayed in `boscloud-engine/false-flag-demo`; `main` was never pushed to, and the disposable PR + branch are gone.
 
 ### 6 · Close — ~45s, just talk
 > "The old model treats the human as the bottleneck — write, push, wait, read logs."
