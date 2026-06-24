@@ -238,6 +238,15 @@ jobs:
         run: |
           set -euo pipefail
           ref="registry.depot.dev/lgvdzr8ffq:${{ needs.build-images.outputs.build-id }}-${{ matrix.bake-target }}"
+          # Accepted-risk suppressions. trivy reads .trivyignore from the cwd;
+          # this job has no repo checkout, so write it inline.
+          cat > .trivyignore <<'EOF'
+          # CVE-2026-34077 (turbo-stream): DoS via client-side XSS in RSC. Fixed only
+          # in turbo-stream@3.0.0, which is incompatible with Remix 2.17 SSR
+          # serialization (breaks dashboard-e2e). Accepted until the dashboard
+          # migrates off Remix 2. Re-evaluate on any Remix major upgrade.
+          CVE-2026-34077
+          EOF
           docker image ls
           trivy image \
             --image-src docker \
