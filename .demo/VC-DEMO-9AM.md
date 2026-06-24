@@ -385,3 +385,6 @@ make seed
 git checkout main && git checkout . && git clean -fd internal js tests
 docker compose down        # add -v to also wipe the DB volume
 ```
+Attendees can get $500 in Depot credits to try Depot.
+After they sign up, they can add the credits to their account using the code DEV26.
+From there, they can configure billing and start using the credits.
