@@ -1,4 +1,4 @@
-# VC Demo — 9am (simple runsheet)
+# Demo — 9am (simple runsheet)
 
 - **THE STORY:** Agents write code in seconds; normal CI takes minutes. Depot CI runs the agent's *uncommitted* code in seconds — it fixes itself, and you push only when it's already green.
 - **KEY TRICK:** the Go code is already in the working tree before you start. Live, the agent only writes the small TypeScript half — that's the real fail → fix → green moment.
