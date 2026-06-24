@@ -62,6 +62,17 @@ git status --short
 
 Each beat = **what to say** + **what to type**.
 
+### Intro · Why modern CI sucks — ~30s, just talk
+> "CI today is a gate you wait on, not a tool you use."
+> "You push, then you sit there while a cold machine reinstalls the world before it even starts your tests. It only runs *after* you commit — so you can't actually check your work until you've already pushed it. And when it breaks, it hands you a wall of logs to copy somewhere else and guess from."
+> "Slow, runs on the wrong side of the commit, and a black box."
+
+> "Depot CI flips all three. It runs your *real* pipeline on demand — against your **uncommitted** local diff, before you push. The runners come up warm: prebaked images, a shared cache, build-once-and-pull — seconds, not minutes. And it's all a CLI and an API, so you call it like a function, read status and logs inline, and fix before anyone sees a red check."
+> "CI stops being a gate you wait on and becomes infrastructure you call."
+
+> **💬 Deeper talk track (optional):**
+> "The old model is push-and-pray, and it's structurally human-paced — built for a world where a person writes a change, pushes a branch, and waits on it. Every team pays the same tax: cold runners, slow feedback, 'works on my machine' drift between local and CI, logs copy-pasted between tools. Depot attacks it at the substrate — Depot Cache plugged straight into the runner so results carry to the next one, Depot Registry for fast image handoff, container builds that bake once and pull everywhere. The same real environment that judges your PR, available to you on demand against uncommitted code. That's the difference between a *faster gate* and a *programmable validation engine* — and it's exactly what makes the agent loop you're about to see possible."
+
 ### 0 · The problem — ~45s, just talk
 > "Agents made writing code cheap."
 > "Now the bottleneck is *checking* it."
