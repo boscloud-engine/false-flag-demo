@@ -13,6 +13,7 @@ export type PredicateKind =
   | "lt"
   | "lte"
   | "matches"
+  | "starts_with"
   | "rollout"
   | "all"
   | "any"
