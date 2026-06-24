@@ -5,7 +5,7 @@
 
 **Facts to have ready:**
 - Depot org: `3njzjqc81m`  •  Repo: `boscloud-engine/false-flag-demo`
-- Container builds: project `mr31tm4wc4`  •  registry `registry.depot.dev/mr31tm4wc4`
+- Container builds: project `lgvdzr8ffq`  •  registry `registry.depot.dev/lgvdzr8ffq`
 - App: dashboard `http://localhost:3030`, API `http://localhost:8080`
 - CI runs remotely on Depot. Nothing gets pushed until the very end.
 
@@ -26,6 +26,10 @@ depot ci run --org 3njzjqc81m --workflow .depot/workflows/ci.yml \
 
 depot ci run --org 3njzjqc81m --workflow .depot/workflows/lint.yml
 depot ci run --org 3njzjqc81m --workflow .depot/workflows/agent-validate.yml
+
+# (optional, only if demoing Beat 3.6's bake) refresh the runner snapshot now so the
+# live run can open a finished bake instead of waiting on a cold one — it takes minutes.
+depot ci run --org 3njzjqc81m --workflow .depot/workflows/snapshot-e2e.yml
 
 # Warm the container-build cache so the on-stage `depot bake` (Beat 3.8) comes back cached.
 depot bake -f docker-bake.hcl --save --save-tag demo
@@ -161,12 +165,24 @@ depot ci run --org 3njzjqc81m --workflow .depot/workflows/ci.yml \
 Open the run URL — **8 jobs** light up at once (test-go-race and contract-test each split into Postgres + SQLite).
 > "Same uncommitted diff, now against the full gate — both languages, race detection, contract tests on real Postgres and SQLite. The agent decides how much any change deserves."
 
-### 3.6 · Pre-built base image — ~90s
+### 3.6 · Pre-built base image — and how it's baked — ~90s
 ```bash
 depot ci run --org 3njzjqc81m --workflow .depot/workflows/lint.yml
 ```
 Open the URL — runner ready in seconds, no cold toolchain on screen.
 > "We bake the expensive setup once and snapshot the whole box. Every loop after that starts warm."
+
+**Now show where that image comes from** — it isn't magic, it's its own workflow:
+```bash
+sed -n '1,54p' .depot/workflows/snapshot-e2e.yml   # one job installs the toolchain, then depot/snapshot-action freezes the box
+```
+> "One job installs the whole toolchain — Go, Node, pnpm, Playwright with Chromium, Spectral, the Postgres image — and `depot/snapshot-action` freezes the running box into `falseflag-ci-base`. That's the exact image `lint` and the e2e shards name in `runs-on`. Build the runner *once*; every loop after that boots from the frozen snapshot."
+
+**Run the bake live (optional):**
+```bash
+depot ci run --org 3njzjqc81m --workflow .depot/workflows/snapshot-e2e.yml
+```
+> ⚠️ This is a real **bake**, not a cache-hit — it installs the toolchain and snapshots the box, so it takes minutes, not seconds. Kick it off and talk over it, or (better) run it pre-show and just open the finished run. It only needs a standard `depot-ubuntu-latest` runner, so unlike the container-build jobs (Beat 3.8) it *does* run in this org.
 
 ### 3.7 · A scoped, agent-style workflow — ~90s
 ⚠️ **Frame as "the kind of workflow an agent generates" — it's committed (showed up in your Beat 1 `ls`), not written live.**
@@ -197,7 +213,7 @@ Because we warmed it pre-show, **every layer comes back `CACHED`** and the whole
 
 Then pull one image the way a downstream job would:
 ```bash
-depot pull demo --project mr31tm4wc4 --target api
+depot pull demo --project lgvdzr8ffq --target api
 ```
 > "That's exactly what smoke and e2e do — pull the prebuilt image by tag or ID, never rebuild. Build once, pull everywhere."
 
@@ -209,6 +225,21 @@ depot pull demo --project mr31tm4wc4 --target api
 > depot build -f infra/Dockerfile --build-arg SERVICE=falseflag-api -t falseflag/api:dev --save .
 > ```
 > Run it twice: the first warms the layer + Go build cache, the second comes back all `CACHED` in seconds. Same NVMe build cache, shared across runners and teammates.
+
+### 3.9 · Parallelism & sharding — ~90s (show, don't run)
+
+> "Last mechanical win — this is the one we wrote up on the blog: how you actually make a big test suite *fast*. Two levers. **Parallelism** is using every core on one box. **Sharding** is splitting the suite across many boxes. The catch is that sharding multiplies setup — spin up twelve machines and each one pays the install tax — so done naively you can shard yourself *slower*."
+
+Show the suite that does it right — `dashboard-e2e` in `ci.yml`:
+```bash
+sed -n '318,356p' .depot/workflows/ci.yml
+```
+> "Playwright, split **six shards × two backends = twelve jobs**, all in parallel. And every one of the twelve starts *warm and prebuilt*: it `pull`s the app images this run already baked — build once, Beat 3.8 — and it boots from the snapshot image with Chromium already inside. See `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` — no per-shard browser download, because the runner snapshot from Beat 3.6 already has it. Loading a prebuilt image into a shard is about five seconds."
+
+> **💬 Deeper talk track (optional):**
+> "The blog's rule of thumb is **job density** — each shard should spend at least ~4× as long *testing* as it spends *setting up*, or you're paying to boot machines instead of running tests. Sharding only pays off if setup stays cheap, and cheap setup is exactly what build-once-and-pull (Beat 3.8) and the prebaked runner snapshot (Beat 3.6) buy you. In our own write-up that combination took a shard from ~14 setup steps and ~45s of setup down to ~6 steps and ~15s — about a minute off every push, all day long. It's the same principle as the agent loop, applied to the whole gate: do the expensive work *once*, and let every parallel consumer reuse it. Full write-up: depot.dev/blog/accelerating-test-suites"
+
+> ⚠️ **Show this one, don't run it.** `dashboard-e2e` needs the container-build project (see Gotchas) — the point here is the *shape* of the file, not a live run. Fan the **8 jobs** live in Beat 3.5 and talk about the full 27-job, twelve-shard expansion.
 
 ---
 
@@ -326,12 +357,14 @@ docker compose exec -T db psql -U falseflag -d falseflag \
 make seed
 ```
 - **Don't run `build-images` / `dashboard-e2e` live** — they need extra setup. Fan out the 8 jobs live and just *talk about* the full 27-job expansion.
-- **`depot bake` is slow on stage (Beat 3.8):** you skipped the prewarm, so it's building cold. Jump straight to `depot pull demo --project mr31tm4wc4 --target api` instead — the cache is the whole point, never bake cold live.
+- **`depot bake` is slow on stage (Beat 3.8):** you skipped the prewarm, so it's building cold. Jump straight to `depot pull demo --project lgvdzr8ffq --target api` instead — the cache is the whole point, never bake cold live.
+- **`snapshot-e2e` is slow on stage (Beat 3.6):** it's a real bake, not a cache-hit — minutes by design. If you didn't pre-run it, just `sed -n '1,54p' .depot/workflows/snapshot-e2e.yml` to show the file and open a prior run from `depot ci run list --org 3njzjqc81m`; don't wait on a cold bake live.
 
 ## Quick checklist
 
 - [ ] Caches warmed — a fresh `--job conformance` comes back fast.
 - [ ] Container-build cache warmed (only if doing Beat 3.8) — `depot bake … --save --save-tag demo` ran once; a second run is all `CACHED`.
+- [ ] Runner snapshot pre-baked (only if doing Beat 3.6's live bake) — `snapshot-e2e.yml` ran once; you have a finished run URL to open if a cold bake is too slow on stage.
 - [ ] App up at `:3030`, seeded.
 - [ ] Go change pre-staged — `git status` shows 7 files, nothing under `js/`.
 - [ ] Screen recording of a clean run saved as a fallback.
